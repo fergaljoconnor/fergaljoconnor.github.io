@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on Fergal&#39;s Homepage</title>
+    <link>https://fergaljoconnor.github.io/post/</link>
+    <description>Recent content in Posts on Fergal&#39;s Homepage</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Sun, 30 May 2021 21:18:56 +0100</lastBuildDate><atom:link href="https://fergaljoconnor.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Zero_v - Cutting Out VTable Calls with the Rust Type System</title>
+      <link>https://fergaljoconnor.github.io/post/zero_v/</link>
+      <pubDate>Sun, 30 May 2021 21:18:56 +0100</pubDate>
+      
+      <guid>https://fergaljoconnor.github.io/post/zero_v/</guid>
+      
+        <description>Introduction A couple of months ago, I was writing an LC3 virtual machine/ emulator that allows users to add their own plugins to the virtual machine.</description>
+      
+    </item>
+    
+  </channel>
+</rss>

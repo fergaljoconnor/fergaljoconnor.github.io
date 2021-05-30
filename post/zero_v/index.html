@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html  dir="ltr" lang="en" data-theme="dark"><head>
+    <title> Fergal O&#39;Connor | Zero_v - Cutting Out VTable Calls with the Rust Type System </title>
+
+    
+    <meta charset="utf-8"><meta name="generator" content="Hugo 0.83.1" /><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="description" content="Data Engineer. Rust Enthusiast.
+Perpetual Tinkerer.">
+    
+    
+    
+    
+    <link rel="stylesheet"
+        href="/css/main.min.69a557b4fc895e1566037155c2b37c752bb8ccf82803bf8551c60ae44f0f4e23.css"
+        integrity="sha256-aaVXtPyJXhVmA3FVwrN8dSu4zPgoA7&#43;FUcYK5E8PTiM="
+        crossorigin="anonymous"
+        type="text/css">
+    
+    
+    <link rel="stylesheet"
+        href="/css/markupHighlight.min.f798cbda9aaa38f89eb38be6414bd082cfd71a6780375cbf67b6d2fb2b96491e.css"
+        integrity="sha256-95jL2pqqOPies4vmQUvQgs/XGmeAN1y/Z7bS&#43;yuWSR4="
+        crossorigin="anonymous"
+        type="text/css">
+    
+    <link rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" 
+    integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" 
+    crossorigin="anonymous" />
+
+    
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <link rel="canonical" href="/post/zero_v/">
+
+    
+    
+    
+    
+    <script type="text/javascript"
+            src="/js/anatole-header.min.0c05c0a90d28c968a1cad4fb31abd0b8e1264e788ccefed022ae1d3b6f627514.js"
+            integrity="sha256-DAXAqQ0oyWihytT7MavQuOEmTniMzv7QIq4dO29idRQ="
+            crossorigin="anonymous"></script>
+
+
+    
+        
+        
+        <script type="text/javascript"
+                src="/js/anatole-theme-switcher.min.7fd87181cdd7e8413aa64b6867bb32f3a8dc242e684fc7d5bbb9f600dbc2b6eb.js"
+                integrity="sha256-f9hxgc3X6EE6pktoZ7sy86jcJC5oT8fVu7n2ANvCtus="
+                crossorigin="anonymous"></script>
+    
+    <meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Zero_v - Cutting Out VTable Calls with the Rust Type System"/>
+<meta name="twitter:description" content="Introduction A couple of months ago, I was writing an LC3 virtual machine/ emulator that allows users to add their own plugins to the virtual machine."/>
+
+
+    
+
+</head>
+<body><div class="sidebar animated fadeInDown ">
+    <div class="logo-title">
+        <div class="title">
+            <img src="/images/profile.jpg" alt="profile picture">
+            <h3 title=""><a href="/">Fergal O&#39;Connor</a></h3>
+            <div class="description">
+                <p>Data Engineer. Rust Enthusiast.<br>Perpetual Tinkerer.</p>
+            </div>
+        </div>
+    </div>
+    <ul class="social-links">
+        
+    </ul>
+    <div class="footer">
+        <div class="by_farbox">&copy;  Fergal O&#39;Connor 2021 </div>
+    </div>
+</div>
+<div class="main">
+    <div class="page-top  animated fadeInDown ">
+    <a role="button" class="navbar-burger" data-target="navMenu" aria-label="menu" aria-expanded="false">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    <ul class="nav" id="navMenu">
+        
+        
+            
+            <li><a 
+                   href="https://github.com/fergaljoconnor"
+                        
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        
+                   title="">Github</a></li>
+        
+            
+            <li><a 
+                   href="/"
+                        
+                   title="">Home</a></li>
+        
+            
+            <li><a 
+                   href="/post/"
+                        
+                   title="">Posts</a></li>
+        
+            
+            <li><a 
+                   href="/about/"
+                        
+                   title="">About</a></li>
+        
+        
+        
+            <li class="theme-switch-item">
+                <a class="theme-switch" title="Switch Theme">
+                    <i class="fas fa-adjust fa-fw" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+    </ul>
+</div>
+
+    <div class="autopagerize_page_element">
+        <div class="content">
+    <div class="post  animated fadeInDown ">
+        <div class="post-content">
+            
+            <div class="post-title">
+                <h3>Zero_v - Cutting Out VTable Calls with the Rust Type System</h3>
+                
+                    <div class="info">
+                        <em class="fas fa-calendar-day"></em>
+                        <span class="date"> Sun, May 30, 2021 
+                                           </span>
+                        <em class="fas fa-stopwatch"></em>
+                        <span class="reading-time">10-minute read</span>
+                    </div>
+                
+            </div>
+
+            <h1 id="introduction">Introduction</h1>
+<p>A couple of months ago, I was writing an LC3 virtual machine/ emulator that allows users to add their own plugins to the virtual machine. So a user could write something like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">vm</span><span class="o">=</span><span class="w"> </span><span class="n">VM</span>::<span class="n">new</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="n">vm</span><span class="p">.</span><span class="n">add_plugin</span><span class="p">(</span><span class="n">command_logger</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">vm</span><span class="p">.</span><span class="n">add_plugin</span><span class="p">(</span><span class="n">infinite_loop_detector</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">vm</span><span class="p">.</span><span class="n">load_program</span><span class="p">(</span><span class="n">my_program</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">vm</span><span class="p">.</span><span class="n">run</span><span class="p">()</span><span class="w">
+</span></code></pre></div><p>and the vm integrated these plugins in the most obvious way. There was a plugin trait that defined the interface for a plugin:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Plugin</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">handle_event</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">event</span>: <span class="kp">&amp;</span><span class="nc">Event</span><span class="p">,</span><span class="w"> </span><span class="n">vm</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">VM</span><span class="p">)</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>The VM contained a vector of these plugins and whenever there was an event the vm would report it with:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">for</span><span class="w"> </span><span class="n">plugin</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">plugins</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">plugin</span><span class="p">.</span><span class="n">handle_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">event</span><span class="p">)</span><span class="o">?</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>There were some complications related to ownership and not modifying the VM while using self.plugins directly (since the plugins are part of the vm, modifying the vm while executing a plugin which is behind a reference to the VM is a bad idea) but we can safely ignore those for now.</p>
+<p>This is a natural way to approach the problem and in most cases, the right one. It&rsquo;s straightforward to implement, flexible and makes it easy for the end user to write and add their own plugins.</p>
+<p>Unfortunately, it does have a small problem. Inside the VM, the plugins field is defined as:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">VM</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// Some fields
+</span><span class="c1"></span><span class="w">    </span><span class="n">plugins</span>: <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Plugin</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// Some more fields
+</span><span class="c1"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>We are using trait objects, which means dynamic polymorphism, which means to use a plugin we have to go through a vtable.</p>
+<p>And that means vtable overhead.</p>
+<p>Most of the time, vtable overhead isn&rsquo;t a big deal. For it to matter you really need to be in a situation where performance is critical, you&rsquo;re counting nanoseconds and you&rsquo;re going to be calling into the vtable a lot. In the case of the VM, performance is important and plugins are called every time the VM sees an event we want to report. Every new command, every memory read or write, every register read or write and every interaction with an IO device will trigger a virtual function call. So we probably have to worry about overhead.</p>
+<p>This raised the question of whether there was a way for users to inject plugins that:</p>
+<ol>
+<li>Avoids virtual function calls.</li>
+<li>Doesn&rsquo;t require the library user to write much extra boilerplate.</li>
+<li>Provides the compiler with as much information about the plugins at compile time as possible.</li>
+</ol>
+<p>For those upsides, I was prepared to make the following concessions:</p>
+<ol>
+<li>The user has to specify their plugins at compile time rather than at run time.</li>
+<li>The library itself could contain a significant amount of internal boilerplate.</li>
+</ol>
+<p>This article walks through the solution I came up with, the path I took to get there and some of the tools that helped along the way. Hopefully you&rsquo;ll find some of the ideas interesting or learn something new.</p>
+<h1 id="a-simplified-problem-statement">A Simplified Problem Statement</h1>
+<p>First, the problem has a bunch of extra details from the VM use case that we don&rsquo;t need. Lets make something simpler.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IntOp</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">run</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>That&rsquo;s a bit more straightforward. No VM cruft, no events. Just one integer as input and one as output.</p>
+<h1 id="designing-a-solution">Designing a Solution</h1>
+<p>Now, instead of treating our collection as a homogenous array of trait objects, we want some way to iterate over function outputs without going through any vtables. One way to do this would be to go through an enum. There&rsquo;s actually a crate that does this, <a href="https://crates.io/crates/enum_dispatch">enum_dispatch.</a> Enum dispatch is great, but it does violate one of our requirements. Lets say a user wants to make their own plugin. Our crate provides an adder they want to use, but they want to add a custom square op. If we use enum_dispatch, then our user has to do something like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="cp">#[enum_dispatch(Op)]</span><span class="w">
+</span><span class="w"></span><span class="k">enum</span> <span class="nc">OpEnum</span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">Adder</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">Square</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="w">
+</span><span class="w">    </span><span class="n">OpEnum</span>::<span class="n">from</span><span class="p">(</span><span class="n">Adder</span>::<span class="n">new</span><span class="p">()),</span><span class="w">
+</span><span class="w">    </span><span class="n">OpEnum</span>::<span class="n">from</span><span class="p">(</span><span class="n">Squarer</span>::<span class="n">new</span><span class="p">())</span><span class="w">
+</span><span class="w"></span><span class="p">];</span><span class="w">
+</span></code></pre></div><p>This is okay, but it&rsquo;s still a chunk of boilerplate. This is also slightly inefficient in terms of memory usage. Every member of our collection is going to be as large as the largest variant of the enum pus the size of the enum tag.</p>
+<p>Now, on the other hand, enum dispatch lets you vary collection composition at run time and provides a nice interface when you&rsquo;re iterating over the array which is very similar to the way you would iterate over trait objects.</p>
+<p>Still, lets see if we can find a solution that deals with memory usage and boiler plate.</p>
+<p>So the obvious representation for a memory-efficient, tightly packed collection of heterogenous objects is a struct. But in order to have their trait automatically be implemented for a user-defined struct, the intermediate library author would have to write their own procedural macro, which is a lot of heavy lifting.</p>
+<p>Lets try something different. What are our options instead of a simple struct?</p>
+<p>Well, we want to define a type which contains one or more instances of heterogenous objects. And we want to be able to define an iterator over this collection of objects.</p>
+<p>This sounds like a job for generics, except for the fact that we won&rsquo;t know how many objects the library user is going to want in their collection in their code, so we don&rsquo;t know how many objects we want to be generic over.</p>
+<p>One option for this would be to define one type of struct for every number of elements in the struct. So one struct called OneMemberStruct, one called TwoMemberStruct and so on, with the corresponding number of fields over which the types will be generic:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">OneMemberStruct</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">member1</span>: <span class="nc">A</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">TwoMemberStruct</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">member1</span>: <span class="nc">A</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">member2</span>: <span class="nc">B</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>Then we create a trait that defines the behavior of returning an iterator and implement that trait for each struct type. For all likely collection sizes.</p>
+<p>My fingers are starting to hurt just typing that.</p>
+<p>Even with macros, the above solution seems quite ugly. The Rust standard library actually had to do something analogous to this for arrays of different sizes before const generics came along, and while it was workable, it was never ideal. Unfortunately, our collections are heterogenous, so we don&rsquo;t get to use the const generics escape hatch.</p>
+<p>So can we create a recursive solution?</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">MyStruct</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">data</span>: <span class="nc">A</span><span class="w">
+</span><span class="w">    </span><span class="n">next</span>: <span class="nc">B</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>If B is another MyStruct, we might have something.It&rsquo;s a little like a linked list. Every node contains some data and the final next pointer will just be a pointer to the next chunk of data. Except that&rsquo;s not how linked lists work, because the final pointer should be a null. So what does a null look like in Rust? It&rsquo;s usually just an Option. But a None in an option is an object that is null and we want to express a type that is null. The closest thing to this is probably the unit type, ().</p>
+<p>So lets take another go at defining our struct. We want the next field to either be a MyStruct or the unit type. And lets change the type name to reflect the linked list idea.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">Node</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span>: <span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">data</span>: <span class="nc">A</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">next</span>: <span class="nc">B</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">trait</span><span class="w"> </span><span class="n">NextNode</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">NextNode</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">()</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span>:<span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="n">NextNode</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyStruct</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span></code></pre></div><p>But what does an empty collection look like? We could just use the unit type as the empty collection, but implementing more behavior than we have to for the unit type seems like a bad idea.</p>
+<p>Instead, lets have a simple type representing the entry point to the collection for the user.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">Composite</span><span class="o">&lt;</span><span class="n">A</span>:<span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">head</span>: <span class="nc">A</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>Great, we have a type. Lets say we have some constructors defined for everything too (omitted here, the new() functions will look like what you expect) But what does client code look like right now?</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="kd">let</span><span class="w"> </span><span class="n">collection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Composite</span>::<span class="n">new</span><span class="p">(</span><span class="w">
+</span><span class="w">        </span><span class="n">Node</span>:::<span class="n">new</span><span class="p">(</span><span class="n">object1</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="n">Node</span>::<span class="n">new</span><span class="p">(</span><span class="n">object2</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="n">Node</span>::<span class="n">new</span><span class="p">(</span><span class="n">object3</span><span class="p">,</span><span class="w"> </span><span class="p">())</span><span class="w">
+</span><span class="w">        </span><span class="p">))</span><span class="w">
+</span><span class="w">    </span><span class="p">);</span><span class="w">
+</span></code></pre></div><p>Ugh. Lets not do that.</p>
+<p>So, we have a collection where there can be an arbitrary amount of objects of different types fed to the constructor. This looks like a job for macros.</p>
+<p>First we want a macro that will look something like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="kd">let</span><span class="w"> </span><span class="n">nodes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compose_nodes</span><span class="o">!</span><span class="p">(</span><span class="n">object1</span><span class="p">,</span><span class="w"> </span><span class="n">object2</span><span class="p">,</span><span class="w"> </span><span class="n">object3</span><span class="p">);</span><span class="w">
+</span></code></pre></div><p>Which will give us our nodes without the user having to worry about the nested calls to the node constructor.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="n">macro_rules</span><span class="o">!</span><span class="w"> </span><span class="n">compose_nodes</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="p">()</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">    </span><span class="p">(</span><span class="cp">$val</span>: <span class="nc">expr</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">       </span><span class="n">Node</span>::<span class="n">base</span><span class="p">(</span><span class="cp">$val</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">    </span><span class="p">(</span><span class="cp">$left</span>: <span class="nc">expr</span><span class="p">,</span><span class="w"> </span><span class="cp">$($right</span>: <span class="nc">expr</span><span class="p">),</span><span class="w"> </span><span class="o">+</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">Node</span>::<span class="n">new</span><span class="p">(</span><span class="cp">$left</span><span class="p">,</span><span class="w"> </span><span class="n">compose_nodes</span><span class="o">!</span><span class="p">(</span><span class="w"> </span><span class="cp">$($right</span><span class="p">),</span><span class="w"> </span><span class="o">+</span><span class="p">))</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>This is simple enough. If it&rsquo;s empty, return the unit type. If it&rsquo;s a single value, return a node with that value as the data field and the unit type as the next field (this is all Node::base does) and finally, if it&rsquo;s two or more values, return a node with the first value in the data field and the macro result of the remaining values in the next field.</p>
+<p>Let&rsquo;s add a simpler helper macro to put a Composite::new call on top of that.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="n">macro_rules</span><span class="o">!</span><span class="w"> </span><span class="n">compose</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="p">(</span><span class="cp">$($right</span>: <span class="nc">expr</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">Composite</span>::<span class="n">new</span><span class="p">(</span><span class="n">compose_nodes</span><span class="o">!</span><span class="p">(</span><span class="w"> </span><span class="cp">$($right</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="p">))</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>And that gives the end-user a pretty nice interface when they&rsquo;re defining their collection:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="kd">let</span><span class="w"> </span><span class="n">composite</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compose</span><span class="o">!</span><span class="p">(</span><span class="w">
+</span><span class="w">    </span><span class="n">ObjectType1</span>::<span class="n">new</span><span class="p">(),</span><span class="w">
+</span><span class="w">    </span><span class="n">ObjectType2</span>::<span class="n">new</span><span class="p">(),</span><span class="w">
+</span><span class="w">    </span><span class="n">ObjectType3</span>::<span class="n">new</span><span class="p">()</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span></code></pre></div><h1 id="defining-iteration-over-this-collection">Defining Iteration Over This Collection</h1>
+<p>Great. So we have one problem sorted. But now how does a library writer define the behavior they want over a collection this.</p>
+<p>This is where the tradeoff with the enum solution comes back to bite us. If the collection was composed of enums, you could iterate over it in a pretty standard way, by returning an iterator over &amp;EnumType. All our objects can be of different types, so that&rsquo;s not an option. We could iterate over &amp;dyn TraitType, but then, even though we keep the compact memory representation of the composite solution, we are back to virtual functions and pointer chasing.</p>
+<p>So is there a way we can have our cake and eat it too?</p>
+<p>Sort of. Lets look at the definition of our trait again.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IntOp</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">run</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>We can&rsquo;t iterate over a collection of these, because they might all have different types. But we do have one escape hatch. The return type of the function is always going to be the same, so what if we set that to our iterator return type?</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">nodes</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="n">Nodes</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">index</span>: <span class="kt">usize</span>
+<span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Iterator</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">next</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Self</span>::<span class="n">Item</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// We&#39;ll get back to this implementation later.
+</span><span class="c1"></span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>A major problem with this implementation as it stands is that don&rsquo;t have a guarantee that members of the collection implement IntOp. So we&rsquo;ll need a marker trait showing that all the members of a collection implement IntOp.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">trait</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">A</span>: <span class="nc">IntOp</span><span class="p">,</span><span class="w"> </span><span class="n">B</span>: <span class="nc">IntOpCollection</span><span class="o">&gt;</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Node</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span></code></pre></div><p>So now we can change the bounds on our CompositeIterator to:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">//...
+</span><span class="c1"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>Now we know our collection contains objects with our trait. How do we iterate over it?</p>
+<p>Well, our iterator will keep an index that we&rsquo;ll incremement between iterations. So we just need a way to get the output of the run function for the element at that index.</p>
+<p>But the curse of heterogenous collections strikes again. We can&rsquo;t index into the collection, because the return type of the index operation could be any of the types in our collection.</p>
+<p>Maybe we can use the recursive nature of IntOpCollection to do something?</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">trait</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">run_at_index</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">index</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">A</span>: <span class="nc">IntOp</span><span class="p">,</span><span class="w"> </span><span class="n">B</span>: <span class="nc">IntOpCollection</span><span class="o">&gt;</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Node</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">run_at_index</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">index</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">next</span><span class="p">.</span><span class="n">run_at_index</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">IntOpCollection</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">run_at_index</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">index</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="nb">None</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>The real action here happens in the implementation for a Node. If the index has reached zero, we return the result of running the operation at the head of that collection. Otherwise we decrement the index and pass it to the run_at_index method for the subcollection in the next node. Eventually, when the starting index gets big enough, it will reach the unit type at the end of the collection before the index hits zero and return None, which is exactly what we want.</p>
+<p>Okay, that gives us the behavior we want. Back to our iterator.</p>
+<p>The iterator needs to keep track of the index, hold a reference to the collection and feeds the input arguments to the right element of the collection on each iteration.</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="k">struct</span> <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">nodes</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="n">Nodes</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">index</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">arg</span>: <span class="kt">usize</span>
+<span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Iterator</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">next</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Self</span>::<span class="n">Item</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">nodes</span><span class="p">.</span><span class="n">run_at_index</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">index</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">index</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="n">output</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>This gives us something like a reverse of the map function on a collection. Map takes a single function and runs it on using each item of the collection as an input. Here we take a single input, and run each function in the collection on it. Well, you could also think of this as using map over a collection of functions where the function passed to map is a closure that calls the function on the single input. Either way, this is only one of the things you might want to do with a collection. What if we wanted to pass the output of one function to the input of the next for an accumulator for example?</p>
+<p>This can be done, as long as we can set the value of the input field, by doing something like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Rust" data-lang="Rust"><span class="kd">let</span><span class="w"> </span><span class="n">last_output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">input</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">output</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">composite_iterator</span><span class="p">.</span><span class="n">next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">composite_iterator</span><span class="p">.</span><span class="n">arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">output</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="n">last_output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">output</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">};</span><span class="w">
+</span></code></pre></div><p>Changing the input field mid-iteration should let us get all the behavior we&rsquo;ll need from the iterator.</p>
+<p>So that&rsquo;s it for the implementation. It took fifty lines of boilerplate, but we got there. Let&rsquo;s look at all of that together.</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">IntOp</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">execute</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">trait</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">execute_at_level</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">level</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">A</span>: <span class="nc">IntOp</span><span class="p">,</span><span class="w"> </span><span class="n">B</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Node</span><span class="o">&lt;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">execute_at_level</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">level</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">execute</span><span class="p">(</span><span class="n">input</span><span class="p">))</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">next</span><span class="p">.</span><span class="n">execute_at_level</span><span class="p">(</span><span class="n">input</span><span class="p">,</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">execute_at_level</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_input</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">_level</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="nb">None</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">level</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">parent</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="n">Nodes</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="n">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">parent</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="n">Nodes</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">parent</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">input</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">level</span>: <span class="mi">0</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Iterator</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">next</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Self</span>::<span class="n">Item</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">parent</span><span class="p">.</span><span class="n">execute_at_level</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">input</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">level</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">level</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="n">result</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">trait</span><span class="w"> </span><span class="n">IterExecute</span><span class="o">&lt;</span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">   </span><span class="k">fn</span> <span class="nf">iter_execute</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">Nodes</span>: <span class="nc">NextNode</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">IntOpAtLevel</span><span class="o">&gt;</span><span class="w"> </span><span class="n">IterExecute</span><span class="o">&lt;</span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Composite</span><span class="o">&lt;</span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">   </span><span class="k">fn</span> <span class="nf">iter_execute</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">input</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">CompositeIterator</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="p">,</span><span class="w"> </span><span class="n">Nodes</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">       </span><span class="n">CompositeIterator</span>::<span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">head</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">)</span><span class="w">
+</span><span class="w">   </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+        <div class="post-footer">
+            <div class="info">
+                
+                
+            </div>
+        </div>
+
+        
+    </div>
+
+
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript"
+        src="/js/medium-zoom.min.83cb1dd5fea8d42d87d1e601a07faa73089ad0ef9ccfe5daf6041289ebcc4e46.js"
+        integrity="sha256-g8sd1f6o1C2H0eYBoH&#43;qcwia0O&#43;cz&#43;Xa9gQSievMTkY="
+        crossorigin="anonymous"></script></body>
+
+</html>
